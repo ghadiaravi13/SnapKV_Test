@@ -103,6 +103,7 @@ if __name__ == '__main__':
             if dataset == 'qasper':
                 score_e = scorer_e(dataset, predictions, answers, lengths, all_classes)
         scores[dataset] = score
+        print(scores)
         # if dataset == 'qasper':
         #     scores[dataset + '_e'] = score_e
     if args.e:

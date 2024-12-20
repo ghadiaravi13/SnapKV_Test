@@ -1,5 +1,5 @@
 import os
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaConfig
 from datasets import load_dataset
 import json
 from tqdm import tqdm
@@ -7,11 +7,15 @@ import numpy as np
 import random
 import argparse
 import torch
+
+import sys
+sys.path.append("/work/10198/ghadiaravi13/vista/SnapKV_Test/")
+
 from snapkv.monkeypatch.monkeypatch import replace_llama, replace_mistral, replace_mixtral
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default=None, choices=[
-        "llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k", 
+        "llama3.1-8b-instruct","llama2-7b-chat-4k", "longchat-v1.5-7b-32k", "xgen-7b-8k", 
         "internlm-7b-8k", "chatglm2-6b", "chatglm2-6b-32k", "chatglm3-6b-32k", "vicuna-v1.5-7b-16k",
         "mistral-7B-instruct-v0.2", "mistral-7B-instruct-v0.1", "llama-2-7B-32k-instruct", "mixtral-8x7B-instruct-v0.1","lwm-text-chat-1m", "lwm-text-1m"])
     parser.add_argument('--compress_args_path', type=str, default=None, help="Path to the compress args")
@@ -180,15 +184,21 @@ def load_model_and_tokenizer(path, model_name, device, compress=False):
             path,
             use_fast=False,
         )
-    elif "llama-2" in model_name or "lwm" in model_name:
+    elif "llama" in model_name or "lwm" in model_name:
+        cache_dir = "/work/10198/ghadiaravi13/vista/HF_cache/"
+        os.makedirs(cache_dir, exist_ok=True)
+        # Create a custom configuration with HopFormer parameters
+        # config = LlamaConfig.from_pretrained(path, cache_dir=cache_dir)
+        # config.hopformer = None
+
         if not compress:
             model = AutoModelForCausalLM.from_pretrained(
                     path,
                     torch_dtype=torch.float16,
                     low_cpu_mem_usage=True,
                     device_map="auto",
-                    use_cache=True,
-                    use_flash_attention_2=True
+                    attn_implementation="flash_attention_2",
+                    cache_dir = cache_dir
                 )
         else:
             model = AutoModelForCausalLM.from_pretrained(
@@ -196,12 +206,13 @@ def load_model_and_tokenizer(path, model_name, device, compress=False):
                     torch_dtype=torch.float16,
                     low_cpu_mem_usage=True,
                     device_map="auto",
-                    use_cache=True,
-                    use_flash_attention_2=True
+                    attn_implementation="flash_attention_2",
+                    cache_dir = cache_dir
                 )
         tokenizer = AutoTokenizer.from_pretrained(
             path,
             use_fast=False,
+            cache_dir = cache_dir
         )
     elif "mistral" in model_name:
         if not compress:
@@ -269,8 +280,8 @@ if __name__ == '__main__':
     # define your model
     max_length = model2maxlen[model_name]
     if args.e:
-        datasets = ["qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
-            "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
+        datasets = ["2wikimqa","qasper","hotpotqa","passage_retrieval_en"]#["qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
+            # "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
     else:
         datasets = ["narrativeqa", "qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "musique", \
             "gov_report", "qmsum", "multi_news", "trec", "triviaqa", "samsum", \
